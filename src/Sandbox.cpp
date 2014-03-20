@@ -1,18 +1,27 @@
-#include <opencv.hpp>
-#include <stdio.h>
+#include <highgui/highgui.hpp>
+#include <iostream>
 
 using namespace cv;
 using namespace std;
 
 int main(int argc, char** argv){
-	if (argc<2){
-		cout<<"Please Specify an Image as An Argument while calling this program"<<endl;
-		return 1;
+	VideoCapture Stream;
+	if (argc==1){
+		Stream.open(0);				// Default Camera
+	} else {
+		Stream.open(argv[1]);		// Open a Video File
 	}
-	Mat Image=imread(argv[1],-1);
-	if (Image.empty()) return -1;
-	namedWindow("Picture", WINDOW_NORMAL);
-	imshow("Picture", Image);
-	waitKey(0);
-	destroyAllWindows();
+	if (!Stream.isOpened()){
+		cout << "Couldn't Open Capture Device" << endl;
+		return -1;
+	}
+	Mat frame;
+	namedWindow("Video Stream Viewer", WINDOW_NORMAL);
+	while (waitKey(1)!='c'){
+		Stream >> frame;
+		if (!frame.data) break;
+		imshow("Video Stream Viewer", frame);
+	}
+	cout<<"Good bye cruel world! u.u"<<endl;
+	return 0;
 }

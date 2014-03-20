@@ -8,12 +8,12 @@ int main(int argc, char** argv){
 	VideoCapture Stream;
 	if (argc==1){
 		Stream.open(0);				// Default Camera
+		if (!Stream.isOpened()){
+			cout << "Couldn't Open Capture Device" << endl;
+			return -1;
+		}
 	} else {
 		Stream.open(argv[1]);		// Open a Video File
-	}
-	if (!Stream.isOpened()){
-		cout << "Couldn't Open Capture Device" << endl;
-		return -1;
 	}
 	Mat frame;
 	namedWindow("Video Stream Viewer", WINDOW_NORMAL);

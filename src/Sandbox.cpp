@@ -4,15 +4,33 @@
 using namespace cv;
 using namespace std;
 
-typedef struct CannyEdgesParameters{
-	int Threshold1;
-	int Threshold2;
-	int apertureSize;
-	int L2Gradient;
-} CannyEParams;
+float ArrayStdDeviation(uchar Neighborhood [], Size NSize){
+	int Mean=0;
+	for (int x=0;x<NSize.width;++x){
+		for (int y=0;y<NSize.height;++y){
+			Mean += Neighborhood[x*NSize.height+y];
+		}
+	}
+	Mean /= NSize.width*NSize.height;
 
-void L2GradChange(bool val){
+	int STD=0;
+	for (int x=0;x<NSize.width;++x){
+		for (int y=0;y<NSize.height;++y){
+			STD += abs(Mean-Neighborhood[x*NSize.height+y]);
+		}
+	}
+	STD /= NSize.width*NSize.height;
 
+	return STD;
+}
+
+void UpdateNeighborhoodWidth(int newWidth, void *NHSizeO){
+	Size* NHSize = (Size*) NHSizeO;
+	NHSize->width=3+2*newWidth;
+}
+void UpdateNeighborhoodHeight(int newHeight, void *NHSizeO){
+	Size* NHSize = (Size*) NHSizeO;
+	NHSize->height=3+2*newHeight;
 }
 
 int main(int argc, char** argv){
@@ -27,35 +45,44 @@ int main(int argc, char** argv){
 		Stream.open(argv[1]);		// Open a Video File
 	}
 
-	namedWindow("Video Stream Viewer", WINDOW_NORMAL);
-	namedWindow("Output Stream Viewer", WINDOW_NORMAL);
+	namedWindow("Video Stream Viewer", CV_WINDOW_KEEPRATIO);
+	namedWindow("Output Stream Viewer", CV_WINDOW_KEEPRATIO);
 
 	Mat FrameD; 			Stream>>FrameD; 		Mat *Frame=&FrameD;					// I miss C Compound Literals!
 	Mat OutputFrameD; 		Stream>>OutputFrameD; 	Mat *OutputFrame=&OutputFrameD;
-	CannyEParams CannyParamsD={60, 85, 0, true};	CannyEParams *CannyParams=&CannyParamsD;
-	int pyrDownCicles=1;
-	int CannyCicles=1;
 
-	namedWindow("Canny Edges Parameters", CV_WINDOW_FREERATIO);
+	Size NHSizeD=Size(3,3);	Size *NHSize=&NHSizeD;										// NeighborhoodSize elements must be odd!
+	int Amplificator=10;
+	int NHSizeW=0;
+	int NHSizeH=0;
 
+	namedWindow("Border Processor Parameters", CV_WINDOW_FREERATIO);
 
 	while (waitKey(1)!=27){
 		Stream >> *Frame;
-		Stream >> *OutputFrame;
+		*OutputFrame=Scalar(0,0,0);
 		if (!Frame->data) cout<<"Invalid Frame!"<<endl;
 		imshow("Video Stream Viewer", *Frame);
 
-		createTrackbar("pyrDown Cicles", "Output Stream Viewer", &pyrDownCicles, 10, NULL);
-		createTrackbar("Canny Cicles", "Output Stream Viewer", &CannyCicles, 6, NULL);
+		createTrackbar("STD Amplificator", "Border Processor Parameters", &Amplificator, 10, NULL);
+		createTrackbar("Size of Neighbohood", "Border Processor Parameters", &NHSizeW, 6, &UpdateNeighborhoodWidth, NHSize);
+		createTrackbar("Height of Neighbohood", "Border Processor Parameters", &NHSizeH, 6, &UpdateNeighborhoodHeight, NHSize);
 
-		createTrackbar("Thrhold 1", "Canny Edges Parameters", &CannyParams->Threshold1, 100, NULL);
-		createTrackbar("Thrhold 2", "Canny Edges Parameters", &CannyParams->Threshold2, 100, NULL);
-		createTrackbar("Ap Size", "Canny Edges Parameters", &CannyParams->apertureSize, 2, NULL);
-		createTrackbar("L2 Grad", "Canny Edges Parameters", &CannyParams->L2Gradient, 1, NULL);
-
-		for (char i=0; i<pyrDownCicles; ++i) pyrDown(*OutputFrame, *OutputFrame);
-		for (char i=0; i<CannyCicles; ++i) Canny(*OutputFrame, *OutputFrame, CannyParams->Threshold1, CannyParams->Threshold2, 2*CannyParams->apertureSize+3, CannyParams->L2Gradient>0?true:false);
-
+		uchar PixelNBH[NHSize->width*NHSize->height];
+		for (int ColorPixel=0; ColorPixel<3; ++ColorPixel){
+			for (int xPix=(NHSize->width-1)/2; xPix<=Frame->cols-(NHSize->width-1)/2; ++xPix){
+				for (int yPix=(NHSize->height-1)/2; yPix<Frame->rows-(NHSize->height-1)/2; ++yPix){
+					for (int Ny=0; Ny<NHSize->height; ++Ny){
+						for (int Nx=0; Nx<NHSize->width; ++Nx){
+							PixelNBH[Ny*NHSize->width + Nx]=Frame->data[Frame->step[0]*(yPix+Ny-(NHSize->height-1)/2) + Frame->step[1]*(xPix+Nx-(NHSize->width-1)/2) + ColorPixel];
+						}
+					}
+					OutputFrame->data[OutputFrame->step[0]*yPix + OutputFrame->step[1]*xPix + 0] += ArrayStdDeviation(PixelNBH, *NHSize)*Amplificator;
+					OutputFrame->data[OutputFrame->step[0]*yPix + OutputFrame->step[1]*xPix + 1] += ArrayStdDeviation(PixelNBH, *NHSize)*Amplificator;
+					OutputFrame->data[OutputFrame->step[0]*yPix + OutputFrame->step[1]*xPix + 2] += ArrayStdDeviation(PixelNBH, *NHSize)*Amplificator;
+				}
+			}
+		}
 		imshow("Output Stream Viewer", *OutputFrame);
 	}
 

@@ -1,0 +1,4 @@
+eclipse.preferences.version=1
+project-sync-config=<?xml version\="1.0" encoding\="UTF-8"?>\n<sync-configs active\="XU3-[Local] Development">\n<sync-config config-name\="Local" connection-name\="Local" location\="${project_loc}" remote-services-id\="org.eclipse.remote.LocalServices" sync-on-postbuild\="true" sync-on-prebuild\="true" sync-on-save\="true" sync-provider-id\="org.eclipse.ptp.rdt.sync.git.core.synchronizeService">\n<config-properties/>\n</sync-config>\n<sync-config config-name\="XU3-[Local] Development" connection-name\="xu3-local" location\="/Development/OpenCV-Playground" remote-services-id\="org.eclipse.ptp.remote.RSERemoteServices" sync-on-postbuild\="true" sync-on-prebuild\="true" sync-on-save\="true" sync-provider-id\="org.eclipse.ptp.rdt.sync.git.core.synchronizeService">\n<config-properties/>\n</sync-config>\n</sync-configs>
+show-error=false
+sync-mode=ACTIVE

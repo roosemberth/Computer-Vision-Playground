@@ -4,17 +4,20 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
-../src/Sandbox.cpp 
+../src/OpenCL-Common/common.cpp \
+../src/OpenCL-Common/image.cpp 
 
 OBJS += \
-./src/Sandbox.o 
+./src/OpenCL-Common/common.o \
+./src/OpenCL-Common/image.o 
 
 CPP_DEPS += \
-./src/Sandbox.d 
+./src/OpenCL-Common/common.d \
+./src/OpenCL-Common/image.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
-src/%.o: ../src/%.cpp
+src/OpenCL-Common/%.o: ../src/OpenCL-Common/%.cpp
 	@echo 'Building file: $<'
 	@echo 'Invoking: GCC C++ Compiler'
 	g++ -I/usr/local/include/opencv2 -O0 -g3 -Wall -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"

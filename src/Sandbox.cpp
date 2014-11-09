@@ -6,7 +6,7 @@
 
 // ----------------------------------------------------------------------------- General Configuration
 
-#define DebugLevel 				0x0F	// 0x1111b
+#define DebugLevel 				0x0E	// 0x1110b
 
 // ---------------------------------------------------------------------- End of General Configuration
 
@@ -61,9 +61,8 @@ int main(int argc, char** argv){
 	namedWindow(Window_OutVideo, CV_WINDOW_KEEPRATIO);
 
 	Mat Frame;
-	VideoStream.set(CV_CAP_PROP_FORMAT, CV_8UC4);
 	VideoStream.read(Frame);
-	Mat OutputFrame(Frame.rows, Frame.cols, CV_8UC4, NULL, Frame.step);
+	Mat OutputFrame(Frame.rows, Frame.cols, CV_8UC1, NULL, Frame.step/3);
 	DEBUG_INFO("End of OpenCV Initialization");
 	// --------------------------------------------------------------------- End OpenCV Initialization
 
@@ -83,15 +82,15 @@ int main(int argc, char** argv){
 	CatchCLFault(!createContext(&SandboxCLContext), "Failed to create an OpenCL Context!")
 	CatchCLFault(!createCommandQueue(SandboxCLContext, &MaliCommandQueue, &DeviceID), \
 			"Failed to create the OpenCL Command Queue")
-	CatchCLFault(!createProgram(SandboxCLContext, DeviceID, "Nebula.cl", &NebulaProgram), \
+	CatchCLFault(!createProgram(SandboxCLContext, DeviceID, "../src/Nebula.cl", &NebulaProgram), \
 			"Failed to create OpenCL \"Nebula\" program")
-	CatchCLFault(!createProgram(SandboxCLContext, DeviceID, "BGR2Gray.cl", &BGRtoGrayProgram), \
+	CatchCLFault(!createProgram(SandboxCLContext, DeviceID, "../src/BGRtoGray.cl", &BGRtoGrayProgram), \
 			"Failed to create OpenCL \"BGR2Gray\" program")
 
 	NebulaKernel = clCreateKernel(NebulaProgram, "NebulaKernel", &errorCode);
     CatchCLFault(!checkSuccess(errorCode), "Failed to create OpenCL kernel!")
 
-	BGRtoGrayKernel = clCreateKernel(BGRtoGrayProgram, "BGR2GrayKernel", &errorCode);
+	BGRtoGrayKernel = clCreateKernel(BGRtoGrayProgram, "BGRtoGrayKernel", &errorCode);
     CatchCLFault(!checkSuccess(errorCode), "Failed to create OpenCL kernel!")
 
     // TODO: Fix Nebula Events Name Conventions
@@ -114,18 +113,14 @@ int main(int argc, char** argv){
 
     uchar* CL_InFrame;
     uchar* CL_OutFrame;
-
-    cl_image_format CL_InFrameFormat;
-    CL_InFrameFormat.image_channel_order = CL_RGBA;
-    CL_InFrameFormat.image_channel_data_type = CL_UNSIGNED_INT8;
-
-    cl_image_format CL_OutFrameFormat;
-    CL_OutFrameFormat.image_channel_order = CL_RGBA;
-    CL_OutFrameFormat.image_channel_data_type = CL_UNSIGNED_INT8;
-
     cl_image_format CL_GrayFrameFormat;
     CL_GrayFrameFormat.image_channel_order = CL_RGBA;
     CL_GrayFrameFormat.image_channel_data_type = CL_FLOAT;
+
+    size_t RGBFrameSize 	 = 3*sizeof(unsigned char)*Frame.cols*Frame.rows;
+    size_t GrayFrameSize 	 = 1*sizeof(unsigned char)*Frame.cols*Frame.rows;
+	size_t RGBImageRowPitch  = 3*sizeof(unsigned char)*Frame.cols;
+	size_t GrayImageRowPitch = 1*sizeof(unsigned char)*Frame.cols;
 
     struct S_ImageFrameDescriptor{
     	size_t ImageOrigin[3];
@@ -156,49 +151,49 @@ int main(int argc, char** argv){
 
     DEBUG_INFO("Fetching Guide Frame");
 	VideoStream.read(Frame);
+	unsigned int NebulaAmplificator = 10;
 	bool CLOpsSuccess = true;
 
 	DEBUG_INFO("Creating OpenCL Image Objects");
-	FrameImages[0] = clCreateImage2D(SandboxCLContext, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, \
-			&CL_InFrameFormat, Frame.cols, Frame.rows, 0, NULL, &errorCode);	// InFrame
+	FrameImages[0] = clCreateBuffer(SandboxCLContext, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, \
+			RGBFrameSize, NULL, &errorCode);
 	CLOpsSuccess &= checkSuccess(errorCode);
 
 	FrameImages[1] = clCreateImage2D(SandboxCLContext, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, \
 			&CL_GrayFrameFormat, Frame.cols, Frame.rows, 0, NULL, &errorCode);	// GrayFrame
 	CLOpsSuccess  &= checkSuccess(errorCode);
 
-	FrameImages[2] = clCreateImage2D(SandboxCLContext, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, \
-			&CL_OutFrameFormat, Frame.cols, Frame.rows, 0, NULL, &errorCode);	// OutFrame
+	FrameImages[2] = clCreateBuffer(SandboxCLContext, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, \
+			GrayFrameSize, NULL, &errorCode);
 	CLOpsSuccess  &= checkSuccess(errorCode);
 
-	CatchCLFault(!CLOpsSuccess, "Failed to create OpenCL Image Objects")
-	DEBUG_INFO("Successfully Created Image Objects");
+	CatchCLFault(!CLOpsSuccess, "Failed to create OpenCL Image/Buffer Objects")
+	DEBUG_INFO("Successfully Created Image and Buffer Objects");
 
 	// ---------------------------------------------------------------------- End of Nebula Constrains
 	// TODO: [Important] Redefine Process Lifetime
 	while (waitKey(1)!=27){
 		// TODO: [Important] Improve Event Handling
 
-		DEBUG_INFO("Enqueuing OpenCL Map Image Command");
-		CL_InFrame = (uchar*)clEnqueueMapImage(MaliCommandQueue, FrameImages[0], CL_FALSE, \
-				CL_MAP_WRITE, ImageFrameDescriptor.ImageOrigin, ImageFrameDescriptor.ImageRegion, \
-				&ImageFrameDescriptor.ImageRowPitch, &ImageFrameDescriptor.ImageSlicePitch, 0, NULL, \
-				&SandboxCLEvents.MapInFrame(), &errorCode);
+		DEBUG_INFO("Enqueuing OpenCL Map InFrame Image Buffer");
+		CL_InFrame = (uchar*)clEnqueueMapBuffer(MaliCommandQueue, FrameImages[0], CL_FALSE, CL_MAP_WRITE, \
+				0, RGBFrameSize, 0, NULL, &SandboxCLEvents.MapInFrame(), &errorCode);
 		CLOpsSuccess &= errorCode;
-		CatchCLFault(!checkSuccess(CLOpsSuccess), "Failed to Map OpenCL Image.")
-		DEBUG_INFO("OpenCL Image Successfully Mapped!");
+		CatchCLFault(!checkSuccess(CLOpsSuccess), "Failed to Map OpenCL InFrame Image Buffer.")
+		DEBUG_INFO("OpenCL InFrame Image Buffer Successfully Mapped!");
 		Frame.data = CL_InFrame;							// Pointing to OpenCL Allocated Memory
 		clWaitForEvents(1, &SandboxCLEvents.MapInFrame());	// Wait until GPU Mem is Mapped on Host
 		VideoStream.read(Frame);							// Get Frame
 
 		CatchCLFault(clEnqueueUnmapMemObject(MaliCommandQueue, FrameImages[0], CL_InFrame, 0, NULL, \
-				&SandboxCLEvents.UnMapInFrame()), "Error While Unmapping InFrame Memory!")
-		DEBUG_INFO("OpenCL Image Successfully UnMapped!");
+				&SandboxCLEvents.UnMapInFrame()), "Error While Unmapping InFrame Buffer Memory!")
+		DEBUG_INFO("OpenCL InFrame Image Buffer Successfully UnMapped!");
 
 
 		DEBUG_INFO("Setting BGR2Gray OpenCL Kernel Arguments");
 		CLOpsSuccess &= checkSuccess(clSetKernelArg(BGRtoGrayKernel, 0, sizeof(cl_mem), &FrameImages[0]));
 		CLOpsSuccess &= checkSuccess(clSetKernelArg(BGRtoGrayKernel, 1, sizeof(cl_mem), &FrameImages[1]));
+		CLOpsSuccess &= checkSuccess(clSetKernelArg(BGRtoGrayKernel, 2, sizeof(size_t), &RGBImageRowPitch));
 		CatchCLFault(!checkSuccess(CLOpsSuccess), "Failed Setting BGR2Gray OpenCL Kernel Arguments")
 		DEBUG_INFO("Success Setting BGR2Gray OpenCL Kernel Arguments");
 
@@ -214,6 +209,8 @@ int main(int argc, char** argv){
 		DEBUG_INFO("Setting Nebula OpenCL Kernel Arguments");
 		CLOpsSuccess &= checkSuccess(clSetKernelArg(NebulaKernel, 0, sizeof(cl_mem), &FrameImages[1]));
 		CLOpsSuccess &= checkSuccess(clSetKernelArg(NebulaKernel, 1, sizeof(cl_mem), &FrameImages[2]));
+		CLOpsSuccess &= checkSuccess(clSetKernelArg(NebulaKernel, 2, sizeof(size_t), &GrayImageRowPitch));
+		CLOpsSuccess &= checkSuccess(clSetKernelArg(NebulaKernel, 3, sizeof(size_t), &NebulaAmplificator));
 		CatchCLFault(!checkSuccess(CLOpsSuccess), "Failed Setting Nebula OpenCL Kernel Arguments")
 		DEBUG_INFO("Success Setting Nebula OpenCL Kernel Arguments");
 
@@ -226,14 +223,12 @@ int main(int argc, char** argv){
 		DEBUG_INFO("Finished OpenCL Command Queue!");
 
 
-		DEBUG_INFO("Enqueuing OpenCL Map Image Command");
-		CL_OutFrame = (uchar*)clEnqueueMapImage(MaliCommandQueue, FrameImages[2], CL_FALSE, \
-				CL_MAP_READ, ImageFrameDescriptor.ImageOrigin, ImageFrameDescriptor.ImageRegion, \
-				&ImageFrameDescriptor.ImageRowPitch, &ImageFrameDescriptor.ImageSlicePitch, 0, NULL, \
-				&SandboxCLEvents.MapOutFrame(), &errorCode);
+		DEBUG_INFO("Enqueuing OpenCL Map OutFrame Image Buffer");
+		CL_OutFrame = (uchar*)clEnqueueMapBuffer(MaliCommandQueue, FrameImages[2], CL_FALSE, \
+				CL_MAP_READ, 0, GrayFrameSize, 0, NULL, &SandboxCLEvents.MapOutFrame(), &errorCode);
 		CLOpsSuccess &= errorCode;
-		CatchCLFault(!checkSuccess(CLOpsSuccess), "Failed to Map OpenCL Image.")
-		DEBUG_INFO("OpenCL Image Successfully Mapped!");
+		CatchCLFault(!checkSuccess(CLOpsSuccess), "Failed to Map OpenCL OutFrame Image Buffer.")
+		DEBUG_INFO("OpenCL OutFrame Image Buffer Successfully Mapped!");
 
 		clWaitForEvents(1, &SandboxCLEvents.MapOutFrame());
 		OutputFrame.data = CL_OutFrame;
@@ -241,25 +236,27 @@ int main(int argc, char** argv){
 		imshow(Window_InVideo, Frame);
 		imshow(Window_OutVideo, OutputFrame);
 
-		CatchCLFault(clEnqueueUnmapMemObject(MaliCommandQueue, FrameImages[0], CL_InFrame, 0, \
-				NULL, &SandboxCLEvents.UnMapOutFrame()), "Error While Unmapping InFrame Memory!")
-		DEBUG_INFO("OpenCL Image Successfully UnMapped!");
+		CatchCLFault(clEnqueueUnmapMemObject(MaliCommandQueue, FrameImages[2], CL_OutFrame, 0, \
+				NULL, &SandboxCLEvents.UnMapOutFrame()), "Error While Unmapping OutFrame Memory!")
+		DEBUG_INFO("OpenCL OutFrame Image Buffer Successfully UnMapped!");
 
 	}
+	DEBUG_INFO("Printing Last Events Profiling Info\n");
 
-	DEBUG_INFO("Printing Map InFrame Profiling Info:\n");
+	DEBUG_INFO("Printing Map InFrame Profiling Info:");
 	printProfilingInfo(SandboxCLEvents.MapInFrame());
-	DEBUG_INFO("Printing UnMap InFrame Profiling Info:\n");
+	DEBUG_INFO("Printing UnMap InFrame Profiling Info:");
 	printProfilingInfo(SandboxCLEvents.UnMapInFrame());
-	DEBUG_INFO("Printing BGR2Gray Kernel Profiling Info:\n");
+	DEBUG_INFO("Printing BGR2Gray Kernel Profiling Info:");
 	printProfilingInfo(SandboxCLEvents.BGRtoGrayKernel());
-	DEBUG_INFO("Printing Nebula Kernel Profiling Info:\n");
+	DEBUG_INFO("Printing Nebula Kernel Profiling Info:");
 	printProfilingInfo(SandboxCLEvents.NebulaKernel());
-	DEBUG_INFO("Printing Map OutFrame Profiling Info:\n");
+	DEBUG_INFO("Printing Map OutFrame Profiling Info:");
 	printProfilingInfo(SandboxCLEvents.MapOutFrame());
-	DEBUG_INFO("Printing UnMap OutFrame Profiling Info:\n");
+	DEBUG_INFO("Printing UnMap OutFrame Profiling Info:");
+	clWaitForEvents(1, &SandboxCLEvents.UnMapOutFrame());
 	printProfilingInfo(SandboxCLEvents.UnMapOutFrame());
-	DEBUG_INFO("\n End of Profiling Information");
+	DEBUG_INFO("End of Profiling Information\n");
 
 	DEBUG_INFO("Releasing Event Objects...");
 	CatchCLFault(!checkSuccess(clReleaseEvent(SandboxCLEvents.MapInFrame())), \
@@ -276,7 +273,7 @@ int main(int argc, char** argv){
 			"Could not Release Nebula Kernel Run Event")
 	DEBUG_INFO("Event Objects Released");
 
-	DEBUG_INFO("\n Goodbye my dear and beloved world...\n\n");
+	DEBUG_INFO("\n\n Goodbye my dear and beloved world...\n\n");
 	cleanUpOpenCL(SandboxCLContext, MaliCommandQueue, NebulaProgram, NebulaKernel, FrameImages, \
 			NumFrameImages);
 	destroyAllWindows();

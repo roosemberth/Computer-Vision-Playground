@@ -355,8 +355,7 @@ bool createContext(cl_context* context) {
 	cl_platform_id firstPlatformID = 0;
 
 	/* Retrieve a single platform ID. */
-	if (!checkSuccess(
-			clGetPlatformIDs(1, &firstPlatformID, &numberOfPlatforms))) {
+	if (!checkSuccess(clGetPlatformIDs(1, &firstPlatformID, &numberOfPlatforms))) {
 		DEBUG_CRIT("Retrieving OpenCL platforms failed");
 		return false;
 	}
@@ -367,14 +366,14 @@ bool createContext(cl_context* context) {
 	}
 
 	/* Get a context with a GPU device from the platform found above. */
-	cl_context_properties contextProperties[] = { CL_CONTEXT_PLATFORM,
+	cl_context_properties contextProperties[] = { CL_CONTEXT_PLATFORM, \
 			(cl_context_properties) firstPlatformID, 0 };
-	*context = clCreateContextFromType(contextProperties, CL_DEVICE_TYPE_GPU,
-			NULL, NULL, &errorNumber);
+	*context = clCreateContextFromType(contextProperties, CL_DEVICE_TYPE_GPU, NULL, NULL, &errorNumber);
 	if (!checkSuccess(errorNumber)) {
 		DEBUG_CRIT("Creating an OpenCL context failed");
 		return false;
 	}
+	DEBUG_INFO("Context Created!");
 
 	return true;
 }
@@ -458,15 +457,15 @@ bool createProgram(cl_context context, cl_device_id device, string filename, cl_
 		clGetProgramBuildInfo(*program, device, CL_PROGRAM_BUILD_LOG, logSize, log, NULL);
 
 		string* stringChars = new string(log, logSize);
-		cerr << "Build log:\n " << *stringChars << endl;
-
+//		cerr << "Build log:\n " << *stringChars << endl;
+		DEBUG_INFO("Build log: \n%s\n", stringChars->c_str());
 		delete[] log;
 		delete stringChars;
 	}
 
 	if (!buildSuccess) {
 		clReleaseProgram(*program);
-		DEBUG_CRIT("Failed to build OpenCL program");
+		DEBUG_CRIT("Failed to build OpenCL program! ");
 		return false;
 	}
 

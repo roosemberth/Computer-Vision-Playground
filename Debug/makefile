@@ -44,7 +44,7 @@ all: OpenCV-Playground
 OpenCV-Playground: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C++ Linker'
-	g++ -L/usr/local/lib -L/opt/intel/opencl-1.2-4.4.0.117/lib64/ -o "OpenCV-Playground" $(OBJS) $(USER_OBJS) $(LIBS)
+	arm-linux-gnueabihf-g++ -L/usr/local/lib -L/usr/lib/arm-linux-gnueabihf -L/usr/lib/arm-linux-gnueabihf/mali-egl -o "OpenCV-Playground" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 

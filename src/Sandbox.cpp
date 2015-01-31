@@ -6,8 +6,9 @@
 #include "SystechDefinitions.h"
 
 // ----------------------------------------------------------------------------- General Configuration
-
-#define DebugLevel 				0x0E	// 0x1110b
+#ifndef DebugLevel
+	#define DebugLevel 				0x0E	// 0x1110b
+#endif
 
 // ---------------------------------------------------------------------- End of General Configuration
 
@@ -54,11 +55,11 @@ int main(int argc, char** argv){
 	const char Window_LBorders_Title[] = "Left Stream Border Map";
 	const char Window_RBorders_Title[] = "Right Stream Border Map";
 
-	namedWindow(Window_LStream_Title, CV_WINDOW_KEEPRATIO);
-	namedWindow(Window_RStream_Title, CV_WINDOW_KEEPRATIO);
-	namedWindow(Window_DepthMap_Title, CV_WINDOW_KEEPRATIO);
-	namedWindow(Window_LBorders_Title, CV_WINDOW_KEEPRATIO);
-	namedWindow(Window_RBorders_Title, CV_WINDOW_KEEPRATIO);
+	namedWindow(Window_LStream_Title, CV_WINDOW_NORMAL);
+	namedWindow(Window_RStream_Title, CV_WINDOW_NORMAL);
+	namedWindow(Window_LBorders_Title, CV_WINDOW_NORMAL);
+	namedWindow(Window_RBorders_Title, CV_WINDOW_NORMAL);
+//	namedWindow(Window_DepthMap_Title, CV_WINDOW_KEEPRATIO);
 
 	Mat LFrame, RFrame;
 	LStream.read(LFrame);
@@ -84,9 +85,9 @@ int main(int argc, char** argv){
 	CatchCLFault(!createContext(&SandboxCLContext), "Failed to create an OpenCL Context!")
 	CatchCLFault(!createCommandQueue(SandboxCLContext, &MaliCommandQueue, &DeviceID), \
 			"Failed to create the OpenCL Command Queue")
-	CatchCLFault(!createProgram(SandboxCLContext, DeviceID, "../src/Nebula.cl", &NebulaProgram), \
+	CatchCLFault(!createProgram(SandboxCLContext, DeviceID, "src/Nebula.cl", &NebulaProgram), \
 			"Failed to create OpenCL \"Nebula\" program")
-	CatchCLFault(!createProgram(SandboxCLContext, DeviceID, "../src/BGRtoGray.cl", &BGRtoGrayProgram), \
+	CatchCLFault(!createProgram(SandboxCLContext, DeviceID, "src/BGRtoGray.cl", &BGRtoGrayProgram), \
 			"Failed to create OpenCL \"BGR2Gray\" program")
 
 	NebulaKernel = clCreateKernel(NebulaProgram, "NebulaKernel", &errorCode);
@@ -190,9 +191,10 @@ int main(int argc, char** argv){
 	DEBUG_INFO("Successfully Created Image and Buffer Objects");
 
 	clock_t Start_Time, End_Time;
+	int FramesElapsed = 0;
 	// ---------------------------------------------------------------------- End of Nebula Constrains
 	// TODO: [Important] Redefine Process Lifetime
-	while (waitKey(1)!=27||(!LStream.isOpened()&&!RStream.isOpened())){
+	while (waitKey(1)!=27 && FramesElapsed++<LStream.get(CV_CAP_PROP_FRAME_COUNT)){
 		Start_Time = clock();
 		// TODO: [Important] Improve Event Handling
 
@@ -301,9 +303,12 @@ int main(int argc, char** argv){
 				NULL, &SandboxCLEvents.UnMapROutFrame()), "Error While Unmapping ROutFrame Memory!")
 		DEBUG_INFO("OpenCL OutFrame Image Buffer Successfully UnMapped!");
 		End_Time = clock();
-		cout << "Seconds per iteration: " << (double)(End_Time-Start_Time)/CLOCKS_PER_SEC << endl;
-		cout << "Iterations per Second: " << (double)CLOCKS_PER_SEC/(End_Time-Start_Time) << endl;
+		printf("\rSeconds per Iteration: %6f, Iterations per Second: %6f", \
+		(double)(End_Time-Start_Time)/CLOCKS_PER_SEC, (double)CLOCKS_PER_SEC/(End_Time-Start_Time));
+//		cout << "Seconds per iteration: " << (double)(End_Time-Start_Time)/CLOCKS_PER_SEC << endl;
+//		cout << "Iterations per Second: " << (double)CLOCKS_PER_SEC/(End_Time-Start_Time) << endl;
 	}
+	cout << "Elapsed Frames: " << FramesElapsed << endl;
 	DEBUG_INFO("Printing Last Events Profiling Info\n");
 
 	DEBUG_INFO("Printing Map LInFrame Profiling Info:");

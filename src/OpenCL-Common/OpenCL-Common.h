@@ -46,6 +46,7 @@
 #include <sstream>
 #include <fstream>
 #include "../SystechDefinitions.h"
+#include <CL/cl.h>
 
 using namespace std;
 

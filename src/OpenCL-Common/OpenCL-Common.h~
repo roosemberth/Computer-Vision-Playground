@@ -367,7 +367,7 @@ bool createContext(cl_context* context) {
 
 	/* Get a context with a GPU device from the platform found above. */
 	cl_context_properties contextProperties[] = { CL_CONTEXT_PLATFORM, \
-			(cl_context_properties) firstPlatformID, 0 };
+			(cl_context_properties) firstPlatformID[0], 0 };
 	*context = clCreateContextFromType(contextProperties, CL_DEVICE_TYPE_GPU, NULL, NULL, &errorNumber);
 	if (!checkSuccess(errorNumber)) {
 		DEBUG_CRIT("Creating an OpenCL context failed");
@@ -465,7 +465,7 @@ bool createProgram(cl_context context, cl_device_id device, string filename, cl_
 
 	if (!buildSuccess) {
 		clReleaseProgram(*program);
-		DEBUG_CRIT("Failed to build OpenCL program");
+		DEBUG_CRIT("Failed to build OpenCL program! ");
 		return false;
 	}
 

@@ -32,16 +32,6 @@ using namespace std;
 cl_mem FrameImages[6] = {0,0,0,0,0,0};	// [0-2] Left Frame, [3-5] Right Frame: In, Gray, Borders
 char NumFrameImages = 6;
 
-void printHelp(){
-	cerr << "Nebula Processor\n" <<
-			"Arguments: ./Nebula -iL LeftInput -iR RightInput [-oL Left Output -oR Right Output]" << endl;
-	cerr << "-h, -?\t: Help\n" <<
-			"-iL \t: Left Input Stream\n" <<
-			"-oL \t: Left Output Stream\n" <<
-			"-iR \t: Right Input Stream\n" <<
-			"-oR \t: Right Output Stream\n" << endl;
-}
-
 int main(int argc, char** argv){
 	DEBUG_INFO("Program Entry Point, Compiled on: %s:%s", __DATE__, __TIME__);
 	// ------------------------------------------------------------------------- OpenCV Initialization
@@ -49,64 +39,13 @@ int main(int argc, char** argv){
 	VideoCapture LStream;
 	VideoCapture RStream;
 	if (argc<3){
-		cerr << "Err. Insufficient Arguments" << endl;
+		cerr << "Please specify Left and Right Streams as Arguments" << endl;
 		return 1;
 	} else {
-//		LStream.open(argv[1]);		// Open Left Stream
-//		RStream.open(argv[2]);		// Open Right Stream
-//		cout << "Opened " << '"' << argv[1] << '"' << " for Left Stream" << endl;
-//		cout << "Opened " << '"' << argv[2] << '"' << " for Right Stream" << endl;
-	}
-
-	// Decrypt Parameters
-	int currentParameter = 3;
-	bool Headless = false;
-
-	for (;currentParameter++<argc;){
-		switch (argv[currentParameter]){
-			case "-h":
-			case "-?":
-				return 0;
-				break;
-			case "-iL":
-			case "-il":
-			case "-IL":
-				LStream.open(argv[++currentParameter]);
-				cout << "Opened " << '"' << argv[currentParameter] << '"' << " for Left Stream" << endl;
-				break;
-			case "-iR":
-			case "-ir":
-			case "-IR":
-				RStream.open(argv[++currentParameter]);
-				cout << "Opened " << '"' << argv[currentParameter] << '"' << " for Right Stream" << endl;
-				break;
-			case "-oL":
-			case "-ol":
-			case "-OL":
-				VideoWriter LBorders;
-				Headless = true;
-				cout << "Writing to " << '"' << argv[currentParameter] << '"' << " for Left Stream" << endl;
-				break;
-			case "-oR":
-			case "-or":
-			case "-OR":
-				VideoWriter RBorders;
-				Headless = true;
-				cout << "Writing to " << '"' << argv[currentParameter] << '"' << " for Right Stream" << endl;
-				break;
-			default:
-				cout << "Old Argument line type" << endl;
-				LStream.open(argv[currentParameter]);
-				cout << "Opened " << '"' << argv[currentParameter++] << '"' << " for Left Stream" << endl;
-				RStream.open(argv[currentParameter]);
-				cout << "Opened " << '"' << argv[currentParameter++] << '"' << " for Right Stream" << endl;
-				break;
-		}
-	}
-
-	if (!(LStream.isOpened()&&RStream.isOpened())){
-		printHelp();
-		return 1;
+		LStream.open(argv[1]);		// Open Left Stream
+		RStream.open(argv[2]);		// Open Right Stream
+		cout << "Opened " << '"' << argv[1] << '"' << " for Left Stream" << endl;
+		cout << "Opened " << '"' << argv[2] << '"' << " for Right Stream" << endl;
 	}
 
 	const char Window_LStream_Title[] = "Left Stream Viewer";

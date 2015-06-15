@@ -1,8 +1,12 @@
+# Modify from here --------------------------------------------------------------------------------------
+
 # Compiler
 CC = arm-linux-gnueabihf-g++
 
 # Sources Directory
 SOURCEDIR = src/
+# Binaries Directory
+BINDIR = bin/
 
 # Common Flags:
 INCLUDES = -I/usr/local/include/opencv2 -I/usr/local/include/CL -I/usr/local/include/
@@ -11,23 +15,28 @@ LFLAGS =
 LIBS = -lopencv_core -lOpenCL -lopencv_imgproc -lopencv_highgui -lopencv_ml -lopencv_video -lopencv_features2d -lopencv_calib3d -lopencv_objdetect -lopencv_contrib -lopencv_legacy -lopencv_flann -lmali
 USER_LIBS = -L/usr/local/lib -L/usr/lib/arm-linux-gnueabihf -L/usr/lib/arm-linux-gnueabihf/mali-egl
 
-# Debug Flags
+# Debug Options
+D_BINNAME = CV-Playground-Debug
+D_OBJDIR = Debug
 D_CFLAGS = -g3 -rdynamic
-#D_CFLAGS =
 D_LFLAGS = 
 D_LIBS =
 
-# Release Flags
+# Release Options
+R_BINNAME = CV-Playground-Release
+R_OBJDIR = Release
 R_CFLAGS = -O3
 R_LFLAGS = 
 R_LIBS =
+
+# Modify to here --------------------------------------------------------------------------------------
 
 # Sources
 D_SRCS = $(shell find $(SOURCEDIR) -name '*.cpp')
 R_SRCS = $(shell find $(SOURCEDIR) -name '*.cpp')
 OBJS = $(shell sh -c 'cd $(SOURCEDIR);ls | grep .cpp | sed s/cpp/o/g')
-D_OBJS = Debug/$(OBJS)
-R_OBJS = Release/$(OBJS)
+D_OBJS = $(D_OBJDIR)/$(OBJS)
+R_OBJS = $(R_OBJDIR)/$(OBJS)
 
 .PHONY: all Debug Release
 
@@ -35,18 +44,24 @@ R_OBJS = Release/$(OBJS)
 all: Debug Release
 	@echo '=== Finished Building target: $@ ==='
 
+# Pre-Building
+BuildDirs:
+	mkdir -p $(BINDIR)
+	mkdir -p $(D_OBJDIR)
+	mkdir -p $(R_OBJDIR)
+
 # Tool invocations
-Debug: $(D_OBJS)
+Debug: BuildDirs $(D_OBJS)
 	@echo 'Building target: Debug'
 	@echo 'Invoking: GCC C++ Linker'
-	$(CC) $(LFLAGS) $(D_LFLAGS) $(USER_LIBS) -o "Debug/OpenCV-Playground-Debug" $(D_OBJS) $(LIBS)
+	$(CC) $(LFLAGS) $(D_LFLAGS) $(USER_LIBS) -o "$(BINDIR)/$(D_BINNAME)" $(D_OBJS) $(LIBS)
 	@echo 'Finished building target: Debug'
 	@echo ' '
 	
-Release: $(R_OBJS)
+Release: BuildDirs $(R_OBJS)
 	@echo 'Building target: Release'
 	@echo 'Invoking: GCC C++ Linker'
-	$(CC) $(LFLAGS) $(R_LFLAGS) $(USER_LIBS) -o "Release/OpenCV-Playground-Release" $(R_OBJS) $(LIBS)
+	$(CC) $(LFLAGS) $(R_LFLAGS) $(USER_LIBS) -o "$(BINDIR)/$(R_BINNAME)" $(R_OBJS) $(LIBS)
 	@echo 'Finished building target: Release'
 	@echo ' '
 
@@ -67,9 +82,7 @@ $(R_OBJS): $(R_SRCS)
 
 # Other Targets
 clean:
-	-rm -fr $(OBJS) Debug/ Release/
-	-mkdir Debug 
-	-mkdir Release
+	-rm -fr $(BINDIR) $(D_OBJDIR) $(R_OBJDIR)
 	-@echo ' '
 
 .PHONY: all clean dependents
